@@ -2,7 +2,7 @@
 // @name         SpamtrackerReboot
 // @namespace    http://tampermonkey.net/
 // @version      0.1
-// @description  try to take over the world!
+// @description  Rewrite of the spamtracker project, this userscript will notify you using sound and a notification if a new spam post has been posted in any smoke detector supported rooms
 // @author       You
 // @match        *://chat.meta.stackexchange.com/*
 // @match        *://chat.stackexchange.com/*
