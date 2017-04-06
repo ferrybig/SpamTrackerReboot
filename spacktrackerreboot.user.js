@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SpamtrackerReboot
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      0.3
 // @description  Rewrite of the spamtracker project, this userscript will notify you using sound and a notification if a new spam post has been posted in any smoke detector supported rooms
 // @author       You
 // @match        *://chat.meta.stackexchange.com/*
@@ -44,7 +44,7 @@ window.Spamtracker = (function(target) {
             }, 15000);
         };
         notification.onclick = function() {
-            callback();
+            callback(url, elm);
             dismissNotification(id);
         };
         notifications[id] = notification;
