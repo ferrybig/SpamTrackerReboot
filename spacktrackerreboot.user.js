@@ -3,11 +3,11 @@
 // @namespace    http://tampermonkey.net/
 // @version      0.6
 // @description  Rewrite of the spamtracker project, this userscript will notify you using sound and a notification if a new spam post has been posted in any smoke detector supported rooms
-// @author       You
+// @author       Ferrybig
 // @match        *://chat.meta.stackexchange.com/*
 // @match        *://chat.stackexchange.com/*
 // @match        *://chat.stackoverflow.com/*
-// @run-at          document-end
+// @run-at       document-end
 // @grant        none
 // ==/UserScript==
 
