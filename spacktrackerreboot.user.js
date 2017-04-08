@@ -14,7 +14,7 @@
 window.Spamtracker = (function(target, siterooms) {
     'use strict';
 
-    var useSound = true;
+    // Defaults
     var defaultSounds = {
         metastackexchange: '//cdn-chat.sstatic.net/chat/meta2.mp3',
         stackexchange: '//cdn-chat.sstatic.net/chat/se.mp3',
@@ -23,14 +23,65 @@ window.Spamtracker = (function(target, siterooms) {
         superuser: '//cdn-chat.sstatic.net/chat/su.mp3',
         askubuntu: '//cdn-chat.sstatic.net/chat/ubuntu.mp3',
     };
+    var css =
+        ".spamtracker-popup-bg {"+
+        "  position: fixed;"+
+        "  width: 100%;"+
+        "  height: 100%;"+
+        "  top: 0;"+
+        "  left: 0;"+
+        "  background-color: rgba(0, 0, 0, 0.5);"+
+        "  z-index: 100;"+
+        "  text-align: center;"+
+        "}"+
+        ".spamtracker-popup-bg.hidden {"+
+        "  display: none;"+
+        "}"+
+        ".spamtracker-popup-bg:before {"+
+        "  content:''; "+
+        "  display:inline-block; "+
+        "  height:100%; "+
+        "  vertical-align:middle;"+
+        "}"+
+        ".spamtracker-popup {"+
+        "  width: 600px;"+
+        "  max-height: 500px;"+
+        "  display: inline-block;"+
+        "  background: white;"+
+        "  padding: 20px;"+
+        "  border-radius: 10px;"+
+        "  box-shadow: 0 0 20px 2px rgba(0, 0, 0, 0.5);"+
+        "}"+
+        ".spamtracker-header {"+
+        "  border-top-left-radius: 10px;"+
+        "  border-top-right-radius: 10px;"+
+        "  background-color: gray;"+
+        "  margin: -20px -20px 2em;"+
+        "  padding: 10px;"+
+        "  font-size: 3em;"+
+        "}"+
+        ".spamtracker-header-btn {"+
+        "  width: 5em;"+
+        "}" +
+        ".spamtracker-header-btn-bar {"+
+        "  float: right;"+
+        "  width: 11em;"+
+        "}"
+    ;
+
+
+    // Settings
+    var useSound = true;
     var userSounds = {};
-    var sound = {};
     var enabled = true;
     var defaultSound = 'metastackexchange';
     var perSiteSounds = {};
 
+    // Metadaa
     var metaData = GM_info.script || GM_info.SpamtrackerReboot;
 
+    // Caches
+    var sound = {};
     var sitename;
     var callback;
     var lastMessageObserverTarget;
@@ -39,6 +90,13 @@ window.Spamtracker = (function(target, siterooms) {
     * List of open web notification
     */
     var notifications = {};
+
+    // DOM stuff
+    var domSpamtracker;
+    var domGuiHolder;
+    var domGui;
+    var domTabSound;
+    var domTabSites;
 
     /**
     * Loads this userscript
@@ -49,6 +107,7 @@ window.Spamtracker = (function(target, siterooms) {
         registerObserver();
         restoreCallback();
         preloadSoundList(false);
+        createDOMNodesForGui();
     };
 
     var loadSettings = function() {
@@ -82,6 +141,82 @@ window.Spamtracker = (function(target, siterooms) {
             let soundUrl = userSounds[defaultSound] || defaultSounds[defaultSound];
             prepareSound(soundUrl);
         }
+    };
+    var makeElement = function(type, classes, text) {
+        var elm = document.createElement(type);
+        if(classes.constructor === Array) {
+            classes.forEach(elm.classList.add);
+        } else {
+            elm.className = classes;
+        }
+        if(text)
+            elm.textContent = text;
+    };
+    
+    var makeText = function(text) {
+        return document.createTextNode(type);
+    };
+    
+    var makeButton = function(text, classes, click, type) {
+        var elm = makeElement(type || 'button', classes, text);
+        if(text && getClass.call(text) == '[object Function]') {
+            elm.textContent = text();
+            elm.onClick = function(evt) {
+                click(evt);
+                elm.textContent = text();
+            };
+        } else {
+            elm.onClick = click;
+        }
+    };
+
+    var createDOMNodesForGui = function() {
+        // CSS
+        addStyleString(css);
+
+        // Footerbar
+        var insertRef = document.getElementById('footer-legal');
+        var separator = makeText(' | ');
+        insertRef.insertBefore(separator, insertRef.firstChild);
+
+        domSpamtracker = makeButton("spamtracker", [], function() {
+            domGuiHolder.classList.remove('hidden');
+        }, 'a');
+        insertRef.insertBefore(domSpamtracker, insertRef.firstChild);
+
+        // Main gui
+        var domClose = makeButton("Close", "button spamtracker-header-btn", function() {
+            domGuiHolder.classList.add('hidden');
+        });
+
+        var domEnableDisable = makeButton(
+            function(){ return !enabled ? "Enable" : "Disable";},
+            "button spamtracker-header-btn",
+            function() {
+                enabled = !enabled;
+                setConfigOption("enabled", enabled, false);
+            }
+        );
+
+        var domBtnBar = makeElement("div", "button spamtracker-header-btn-bar");
+        domBtnBar.append(domClose).append(domEnableDisable);
+
+        var domHeader = makeElement('h2', "spamtracker-header", "Spamtracker");
+        domHeader.append(domBtnBar);
+
+        domGui = makeElement('div','spamtracker-popup');
+        domGui.append(domHeader);
+
+        domGuiHolder = makeElement('div', 'spamtracker-popup-bg hidden');
+        domGuiHolder.append(domGui);
+
+        document.body.append(domGuiHolder);
+    };
+
+    var addStyleString = function(str) {
+        var node = document.createElement('style');
+        node.innerHTML = str;
+        document.head.appendChild(node);
     };
 
     /**
@@ -261,7 +396,7 @@ window.Spamtracker = (function(target, siterooms) {
 
     var getConfigOption = function(key, defaultValue, global) {
         var data = JSON.parse(window.localStorage.getItem(metaData.name + '-' + (global ? sitename + '-' : '') + key));
-        if(!data) {
+        if(data === null) {
             setConfigOption(key, defaultValue, global);
             return defaultValue;
         }
