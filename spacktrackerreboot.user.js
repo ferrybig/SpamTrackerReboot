@@ -11,11 +11,11 @@
 // @grant        none
 // ==/UserScript==
 
-window.Spamtracker = (function(target) {
+window.Spamtracker = (function(target, siterooms) {
     'use strict';
 
     var useSound = true;
-    var sounds = {
+    var defaultSounds = {
         metastackexchange: '//cdn-chat.sstatic.net/chat/meta2.mp3',
         stackexchange: '//cdn-chat.sstatic.net/chat/se.mp3',
         stackoverflow: '//cdn-chat.sstatic.net/chat/so.mp3',
@@ -23,12 +23,15 @@ window.Spamtracker = (function(target) {
         superuser: '//cdn-chat.sstatic.net/chat/su.mp3',
         askubuntu: '//cdn-chat.sstatic.net/chat/ubuntu.mp3',
     };
-    var sound = {
-        default: new Audio(sounds.metastackexchange),
-    };
+    var userSounds = {};
+    var sound = {};
     var enabled = true;
+    var defaultSound = 'metastackexchange';
+    var perSiteSounds = {};
+
     var metaData = GM_info.script || GM_info.SpamtrackerReboot;
 
+    var sitename;
     var callback;
     var lastMessageObserverTarget;
     var lastMessageObserver;
@@ -41,8 +44,44 @@ window.Spamtracker = (function(target) {
     * Loads this userscript
     */
     var init = function() {
+        var sitename = siterooms ? siterooms.href.split("host=")[1] : "charcoal-hq";
+        loadSettings();
         registerObserver();
         restoreCallback();
+        preloadSoundList(false);
+    };
+
+    var loadSettings = function() {
+        userSounds = getConfigOption("sounds", {}, true);
+        perSiteSounds = getConfigOption("sounds-per-site", {}, true);
+        enabled = getConfigOption("enabled", true, false);
+        defaultSound = getConfigOption("defaultsound", "metastackexchange", true);
+    };
+
+    var prepareSound = function(url) {
+        if(url && !sound[url]) {
+            sound[url] = new Audio(url);
+        }
+    };
+
+    var preloadSoundList = function(loadAll) {
+        if(loadAll) {
+            userSounds.forEach(prepareSound);
+            for (var key in defaultSounds) {
+                if (!defaultSounds.hasOwnProperty(key)) continue;
+                prepareSound(defaultSounds[key]);
+            }
+        } else {
+            console.log(userSounds, perSiteSounds, enabled, defaultSound);
+            for(var i in perSiteSounds) {
+                if (!perSiteSounds.hasOwnProperty(i)) continue;
+                let soundName = perSiteSounds[i];
+                let soundUrl = userSounds[soundName] || defaultSounds[soundName];
+                prepareSound(soundUrl);
+            }
+            let soundUrl = userSounds[defaultSound] || defaultSounds[defaultSound];
+            prepareSound(soundUrl);
+        }
     };
 
     /**
@@ -71,7 +110,13 @@ window.Spamtracker = (function(target) {
     */
     var playSound = function(msg) {
         if(useSound) {
-            sound.default.play();
+            var siteSound = perSiteSounds[msg.site];
+            var soundUrl = defaultSounds[siteSound] || userSounds[siteSound] || defaultSounds[defaultSound];
+            if(!sound[soundUrl]) {
+                console.log("Sound " + soundUrl + " was not ready when we needed it, coming from " + siteSound + " on site " + msg.site);
+                prepareSound(soundUrl);
+            }
+            sound[soundUrl].play();
         }
     };
 
@@ -80,7 +125,10 @@ window.Spamtracker = (function(target) {
     */
     var notifyMe = function (msg) {
         playSound(msg);
-        var notification = new Notification(msg.title, { body: msg.message, icon: '//i.stack.imgur.com/WyV1l.png?s=128&g=1' });
+        var notification = new Notification(msg.title, {
+            body: msg.message,
+            icon: '//i.stack.imgur.com/WyV1l.png?s=128&g=1'
+        });
         notification.onshow = function() {
             msg.timeout = window.setTimeout(function() {
                 dismissNotification(msg.id);
@@ -108,7 +156,7 @@ window.Spamtracker = (function(target) {
     */
     var processChatMessage = function(message) {
         //console.log("Chat message!" + message.children[1].innerHTML);
-        if(!message.children[1]) {
+        if(!enabled || !message || !message.children[1]) {
             return false;
         }
         var smoke = /\/\/goo.gl\/eLDYqh/i;
@@ -211,18 +259,17 @@ window.Spamtracker = (function(target) {
         observer.observe(target, { childList: true });
     };
 
-    var getConfigOption = function(key, defaultValue) {
-        var data = window.localStorage.getItem(metaData + '-' + key);
-        if(data === undefined) {
+    var getConfigOption = function(key, defaultValue, global) {
+        var data = JSON.parse(window.localStorage.getItem(metaData.name + '-' + (global ? sitename + '-' : '') + key));
+        if(!data) {
+            setConfigOption(key, defaultValue, global);
             return defaultValue;
         }
         return data;
     };
 
-    var setConfigOption = function(key, value) {
-        var old = getConfigOption(key, undefined);
-        window.localStorage.setItem(metaData + '-' + key, value);
-        return old;
+    var setConfigOption = function(key, value, global) {
+        window.localStorage.setItem(metaData.name + '-' + (global ? sitename + '-' : '') + key, JSON.stringify(value));
     };
 
     init();
@@ -234,4 +281,4 @@ window.Spamtracker = (function(target) {
         metaData: metaData
     };
 
-})(document.getElementById('chat'));
+})(document.getElementById('chat'), document.getElementById('siterooms'));
