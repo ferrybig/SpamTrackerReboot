@@ -131,7 +131,6 @@ window.Spamtracker = (function(target, siterooms) {
                 prepareSound(defaultSounds[key]);
             }
         } else {
-            console.log(userSounds, perSiteSounds, enabled, defaultSound);
             for(var i in perSiteSounds) {
                 if (!perSiteSounds.hasOwnProperty(i)) continue;
                 let soundName = perSiteSounds[i];
@@ -151,15 +150,16 @@ window.Spamtracker = (function(target, siterooms) {
         }
         if(text)
             elm.textContent = text;
+        return elm;
     };
-    
+
     var makeText = function(text) {
-        return document.createTextNode(type);
+        return document.createTextNode(text);
     };
-    
+
     var makeButton = function(text, classes, click, type) {
         var elm = makeElement(type || 'button', classes, text);
-        if(text && getClass.call(text) == '[object Function]') {
+        if(text && typeof text === "function") {
             elm.textContent = text();
             elm.onClick = function(evt) {
                 click(evt);
@@ -168,6 +168,7 @@ window.Spamtracker = (function(target, siterooms) {
         } else {
             elm.onClick = click;
         }
+        return elm;
     };
 
     var createDOMNodesForGui = function() {
@@ -178,6 +179,7 @@ window.Spamtracker = (function(target, siterooms) {
         var insertRef = document.getElementById('footer-legal');
         var separator = makeText(' | ');
         insertRef.insertBefore(separator, insertRef.firstChild);
+
 
         domSpamtracker = makeButton("spamtracker", [], function() {
             domGuiHolder.classList.remove('hidden');
@@ -195,11 +197,11 @@ window.Spamtracker = (function(target, siterooms) {
             function() {
                 enabled = !enabled;
                 setConfigOption("enabled", enabled, false);
-            }
-        );
+            });
 
         var domBtnBar = makeElement("div", "button spamtracker-header-btn-bar");
-        domBtnBar.append(domClose).append(domEnableDisable);
+        domBtnBar.append(domClose);
+        domBtnBar.append(domEnableDisable);
 
         var domHeader = makeElement('h2', "spamtracker-header", "Spamtracker");
         domHeader.append(domBtnBar);
