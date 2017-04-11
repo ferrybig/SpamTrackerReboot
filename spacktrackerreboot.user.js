@@ -56,16 +56,18 @@ window.Spamtracker = (function(target, siterooms) {
         "  border-top-left-radius: 10px;"+
         "  border-top-right-radius: 10px;"+
         "  background-color: gray;"+
-        "  margin: -20px -20px 2em;"+
+        "  margin: -20px -20px 1rem;"+
         "  padding: 10px;"+
         "  font-size: 3em;"+
         "}"+
         ".spamtracker-header-btn {"+
-        "  width: 5em;"+
+        "  width: 10rem;"+
+        "}" +
+        ".spamtracker-header-btn-close {"+
+        "  width: 4rem;"+
+        "  float: right;"+
         "}" +
         ".spamtracker-header-btn-bar {"+
-        "  float: right;"+
-        "  width: 11em;"+
         "}"
     ;
 
@@ -152,21 +154,21 @@ window.Spamtracker = (function(target, siterooms) {
             elm.textContent = text;
         return elm;
     };
-
+    
     var makeText = function(text) {
         return document.createTextNode(text);
     };
-
+    
     var makeButton = function(text, classes, click, type) {
         var elm = makeElement(type || 'button', classes, text);
         if(text && typeof text === "function") {
             elm.textContent = text();
-            elm.onClick = function(evt) {
+            elm.onclick = function(evt) {
                 click(evt);
                 elm.textContent = text();
             };
         } else {
-            elm.onClick = click;
+            elm.onclick = click;
         }
         return elm;
     };
@@ -181,33 +183,34 @@ window.Spamtracker = (function(target, siterooms) {
         insertRef.insertBefore(separator, insertRef.firstChild);
 
 
-        domSpamtracker = makeButton("spamtracker", [], function() {
+        domSpamtracker = makeButton("spamtracker: " + (enabled ? "on" : "off"), [], function() {
             domGuiHolder.classList.remove('hidden');
         }, 'a');
         insertRef.insertBefore(domSpamtracker, insertRef.firstChild);
 
         // Main gui
-        var domClose = makeButton("Close", "button spamtracker-header-btn", function() {
+        var domClose = makeButton("Close", "button spamtracker-header-btn-close", function() {
             domGuiHolder.classList.add('hidden');
         });
 
+        var domHeader = makeElement('h2', "spamtracker-header", "Spamtracker");
+        domHeader.append(domClose);
+        
         var domEnableDisable = makeButton(
-            function(){ return !enabled ? "Enable" : "Disable";},
+            function(){ return !enabled ? "Enable Spamtracker" : "Disable Spamtracker";},
             "button spamtracker-header-btn",
             function() {
                 enabled = !enabled;
                 setConfigOption("enabled", enabled, false);
+                domSpamtracker.textContent = "spamtracker: " + (enabled ? "on" : "off");
             });
-
-        var domBtnBar = makeElement("div", "button spamtracker-header-btn-bar");
-        domBtnBar.append(domClose);
+        
+        var domBtnBar = makeElement("div", "spamtracker-header-btn-bar");
         domBtnBar.append(domEnableDisable);
-
-        var domHeader = makeElement('h2', "spamtracker-header", "Spamtracker");
-        domHeader.append(domBtnBar);
 
         domGui = makeElement('div','spamtracker-popup');
         domGui.append(domHeader);
+        domGui.append(domBtnBar);
 
         domGuiHolder = makeElement('div', 'spamtracker-popup-bg hidden');
         domGuiHolder.append(domGui);
