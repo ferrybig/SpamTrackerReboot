@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SpamtrackerReboot
 // @namespace    http://tampermonkey.net/
-// @version      0.7
+// @version      0.8
 // @description  Rewrite of the spamtracker project, this userscript will notify you using sound and a notification if a new spam post has been posted in any smoke detector supported rooms
 // @author       Ferrybig
 // @match        *://chat.meta.stackexchange.com/*
@@ -78,6 +78,7 @@ window.Spamtracker = (function(target, siterooms) {
     var enabled = true;
     var defaultSound = 'metastackexchange';
     var perSiteSounds = {};
+    var maxNotifications = 2;
 
     // Metadaa
     var metaData = GM_info.script || GM_info.SpamtrackerReboot;
@@ -92,6 +93,7 @@ window.Spamtracker = (function(target, siterooms) {
     * List of open web notification
     */
     var notifications = {};
+    var notificationsQueue = [];
 
     // DOM stuff
     var domSpamtracker;
@@ -264,12 +266,17 @@ window.Spamtracker = (function(target, siterooms) {
     * Creates a notification for a post
     */
     var notifyMe = function (msg) {
+        if(!enabled) {
+            return;
+        }
         playSound(msg);
         var notification = new Notification(msg.title, {
             body: msg.message,
             icon: '//i.stack.imgur.com/WyV1l.png?s=128&g=1'
         });
         notification.onshow = function() {
+            if(notification.closed)
+                notification.close();
             msg.timeout = window.setTimeout(function() {
                 dismissNotification(msg.id);
             }, 15000);
@@ -279,6 +286,11 @@ window.Spamtracker = (function(target, siterooms) {
             dismissNotification(msg.id);
         };
         notifications[msg.id] = notification;
+        notificationsQueue.push(msg.id);
+
+        if(notificationsQueue.length > maxNotifications) {
+            dismissNotification(notificationsQueue.shift());
+        }
     };
 
     /**
@@ -286,6 +298,7 @@ window.Spamtracker = (function(target, siterooms) {
     */
     var dismissNotification = function(id) {
         if(notifications[id]) {
+            notifications[id].closed = true;
             notifications[id].close();
             delete notifications[id];
         }
@@ -296,7 +309,7 @@ window.Spamtracker = (function(target, siterooms) {
     */
     var processChatMessage = function(message) {
         //console.log("Chat message!" + message.children[1].innerHTML);
-        if(!enabled || !message || !message.children[1]) {
+        if(!message || !message.children[1]) {
             return false;
         }
         var smoke = /\/\/goo.gl\/eLDYqh/i;
