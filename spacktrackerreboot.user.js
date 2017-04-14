@@ -1,6 +1,7 @@
+/* global GM_info, Notification, fire */
+
 // ==UserScript==
 // @name         SpamtrackerReboot
-// @namespace    http://tampermonkey.net/
 // @version      0.9
 // @description  Rewrite of the spamtracker project, this userscript will notify you using sound and a notification if a new spam post has been posted in any smoke detector supported rooms
 // @author       Ferrybig
@@ -8,105 +9,115 @@
 // @match        *://chat.stackexchange.com/*
 // @match        *://chat.stackoverflow.com/*
 // @run-at       document-end
-// @grant        none
+// @require      https://cdn.datatables.net/1.10.13/js/jquery.dataTables.min.js#sha512=1ac1502c5a6774e6e7d3c77dd90d863f745371cd936d8a1620ab1c4a21173ffccfd327e435395df6658779ea87baad3b5ff84bf195110c7bc3187112ee820917
+// @resource     DataTablesCSS https://cdn.datatables.net/1.10.13/css/jquery.dataTables.min.css#sha512=c45f1efde68a4130b5d7b68f2441ba1a85d552fda2076772ba67bdc0fb8d05c21e0d81e89ab418cec18d0ca7d304d9a5504998c05d73f778c4c9f20bbeefaad3
+// @grant        GM_getResourceText
 // ==/UserScript==
 
-window.Spamtracker = (function(target, siterooms) {
+window.Spamtracker = (function (target, siterooms) {
     'use strict';
 
     // Defaults
-    var defaultSounds = {
+    const defaultSounds = {
         metastackexchange: '//cdn-chat.sstatic.net/chat/meta2.mp3',
         stackexchange: '//cdn-chat.sstatic.net/chat/se.mp3',
         stackoverflow: '//cdn-chat.sstatic.net/chat/so.mp3',
         serverfault: '//cdn-chat.sstatic.net/chat/sf.mp3',
         superuser: '//cdn-chat.sstatic.net/chat/su.mp3',
-        askubuntu: '//cdn-chat.sstatic.net/chat/ubuntu.mp3',
+        askubuntu: '//cdn-chat.sstatic.net/chat/ubuntu.mp3'
     };
-    var css =
-        ".spamtracker-popup-bg {"+
-        "  position: fixed;"+
-        "  width: 100%;"+
-        "  height: 100%;"+
-        "  top: 0;"+
-        "  left: 0;"+
-        "  background-color: rgba(0, 0, 0, 0.5);"+
-        "  z-index: 100;"+
-        "  text-align: center;"+
-        "}"+
-        ".spamtracker-popup-bg.hidden {"+
-        "  display: none;"+
-        "}"+
-        ".spamtracker-popup-bg:before {"+
-        "  content:''; "+
-        "  display:inline-block; "+
-        "  height:100%; "+
-        "  vertical-align:middle;"+
-        "}"+
-        ".spamtracker-popup {"+
-        "  width: 600px;"+
-        "  max-height: 500px;"+
-        "  display: inline-block;"+
-        "  background: white;"+
-        "  padding: 20px;"+
-        "  border-radius: 10px;"+
-        "  box-shadow: 0 0 20px 2px rgba(0, 0, 0, 0.5);"+
-        "}"+
-        ".spamtracker-header {"+
-        "  border-top-left-radius: 10px;"+
-        "  border-top-right-radius: 10px;"+
-        "  background-color: gray;"+
-        "  margin: -20px -20px 1rem;"+
-        "  padding: 10px;"+
-        "  font-size: 3em;"+
-        "}"+
-        ".spamtracker-header-btn {"+
-        "  width: 10rem;"+
-        "}" +
-        ".spamtracker-header-btn-close {"+
-        "  width: 4rem;"+
-        "  float: right;"+
-        "}" +
-        ".spamtracker-header-btn-bar {"+
-        "}"
-    ;
+    const css =
+            ".spamtracker-popup-bg {" +
+            "  position: fixed;" +
+            "  width: 100%;" +
+            "  height: 100%;" +
+            "  top: 0;" +
+            "  left: 0;" +
+            "  background-color: rgba(0, 0, 0, 0.5);" +
+            "  z-index: 100;" +
+            "  text-align: center;" +
+            "}" +
+            ".spamtracker-popup-bg.hidden {" +
+            "  display: none;" +
+            "}" +
+            ".spamtracker-popup-bg:before {" +
+            "  content:''; " +
+            "  display:inline-block; " +
+            "  height:100%; " +
+            "  vertical-align:middle;" +
+            "}" +
+            ".spamtracker-popup {" +
+            "  width: 800px;" +
+            "  display: inline-block;" +
+            "  background: white;" +
+            "  padding: 20px;" +
+            "  border-radius: 10px;" +
+            "  vertical-align: middle;" +
+            "  box-shadow: 0 0 20px 2px rgba(0, 0, 0, 0.5);" +
+            "}" +
+            ".spamtracker-header {" +
+            "  border-top-left-radius: 10px;" +
+            "  border-top-right-radius: 10px;" +
+            "  background-color: gray;" +
+            "  margin: -20px -20px 1rem;" +
+            "  padding: 10px;" +
+            "  font-size: 3em;" +
+            "}" +
+            ".spamtracker-header-btn {" +
+            "  width: 10rem;" +
+            "}" +
+            ".spamtracker-header-btn-close {" +
+            "  width: 4rem;" +
+            "  float: right;" +
+            "}" +
+            ".spamtracker-header-btn-bar {" +
+            "}" +
+            ".spamtracker-tab {" +
+            "  max-height: 75vh;" +
+            "  overflow: scroll;" +
+            "}" +
+            ".spamtracker-table {" +
+            "  width: 100%;" +
+            "}"
+            ;
 
 
     // Settings
-    var useSound = true;
-    var userSounds = {};
-    var enabled = true;
-    var defaultSound = 'metastackexchange';
-    var perSiteSounds = {};
-    var maxNotifications = 2;
+    let useSound = true;
+    let userSounds = {};
+    let enabled = true;
+    let defaultSound = 'metastackexchange';
+    let perSiteSounds = {};
+    let maxNotifications = 2;
 
-    // Metadaa
-    var metaData = GM_info.script || GM_info.SpamtrackerReboot;
+    // Metadata
+    let metaData = GM_info.script || GM_info.SpamtrackerReboot;
 
     // Caches
-    var sound = {};
-    var sitename;
-    var callback;
-    var lastMessageObserverTarget;
-    var lastMessageObserver;
+    const sound = {};
+    const sitename = siterooms ? siterooms.href.split("host=")[1] : undefined;
+    let callback;
+    let lastMessageObserverTarget;
+    let lastMessageObserver;
+    let seSites = {sites: [], lastUpdate: 0};
     /**
-    * List of open web notification
-    */
-    var notifications = {};
-    var notificationsQueue = [];
+     * List of open web notification
+     */
+    const notifications = {};
+    const notificationsQueue = [];
 
     // DOM stuff
-    var domSpamtracker;
-    var domGuiHolder;
-    var domGui;
-    var domTabSound;
-    var domTabSites;
+    let domSpamtracker;
+    let domGuiHolder;
+    let domGui;
+    let domTabSound;
+    let domTabSites;
 
     /**
-    * Loads this userscript
-    */
-    var init = function() {
-        var sitename = siterooms ? siterooms.href.split("host=")[1] : "charcoal-hq";
+     * Loads this userscript
+     */
+    const init = function () {
+        loadSeSites();
         loadSettings();
         registerObserver();
         restoreCallback();
@@ -114,58 +125,90 @@ window.Spamtracker = (function(target, siterooms) {
         createDOMNodesForGui();
     };
 
-    var loadSettings = function() {
-        userSounds = getConfigOption("sounds", {}, true);
-        perSiteSounds = getConfigOption("sounds-per-site", {}, true);
+    const loadSeSites = function () {
+        seSites = getConfigOption("sites", seSites, true) || seSites;
+        const ONE_MONTH = 28 * 24 * 60 * 60 * 1000; /* ms */
+
+
+        if (seSites.sites.length === 0 || ((new Date) - seSites.lastUpdate) > ONE_MONTH) {
+            const xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = () => {
+                if (xhttp.readyState === 4 && xhttp.status === 200) {
+                    seSites.sites = sortByKey(JSON.parse(xhttp.responseText).items, 'name');
+                    seSites.lastUpdate = new Date;
+                    setConfigOption("sites", seSites, true)
+                }
+            };
+            xhttp.open('GET', 'https://api.stackexchange.com/2.2/sites?pagesize=10000&filter=!2--Yion.3M.ViUyt1*T9R', true);
+            xhttp.send();
+        }
+    };
+
+    const loadSettings = function () {
+        userSounds = getConfigOption("sounds", userSounds, true);
+        perSiteSounds = getConfigOption("sounds-per-site", perSiteSounds, true);
         enabled = getConfigOption("enabled", true, false);
         defaultSound = getConfigOption("defaultsound", "metastackexchange", true);
     };
 
-    var prepareSound = function(url) {
-        if(url && !sound[url]) {
-            sound[url] = new Audio(url);
+    const prepareSound = function (url) {
+        if (url) {
+            if (!sound[url]) {
+                sound[url] = new Audio(url);
+            }
+            return true;
         }
+        return false;
     };
 
-    var preloadSoundList = function(loadAll) {
-        if(loadAll) {
-            userSounds.forEach(prepareSound);
-            for (var key in defaultSounds) {
-                if (!defaultSounds.hasOwnProperty(key)) continue;
+    const preloadSoundList = function (loadAll) {
+        if (loadAll) {
+            for (let key in userSounds) {
+                if (!userSounds.hasOwnProperty(key))
+                    continue;
+                prepareSound(userSounds[key]);
+            }
+            for (let key in defaultSounds) {
+                if (!defaultSounds.hasOwnProperty(key))
+                    continue;
                 prepareSound(defaultSounds[key]);
             }
         } else {
-            for(var i in perSiteSounds) {
-                if (!perSiteSounds.hasOwnProperty(i)) continue;
-                let soundName = perSiteSounds[i];
-                let soundUrl = userSounds[soundName] || defaultSounds[soundName];
+            for (let i in perSiteSounds) {
+                if (!perSiteSounds.hasOwnProperty(i))
+                    continue;
+                const soundName = perSiteSounds[i];
+                const soundUrl = userSounds[soundName] || defaultSounds[soundName];
                 prepareSound(soundUrl);
             }
-            let soundUrl = userSounds[defaultSound] || defaultSounds[defaultSound];
+            const soundUrl = userSounds[defaultSound] || defaultSounds[defaultSound];
             prepareSound(soundUrl);
         }
     };
-    var makeElement = function(type, classes, text) {
-        var elm = document.createElement(type);
-        if(classes.constructor === Array) {
-            classes.forEach(elm.classList.add);
+
+    const makeElement = function (type, classes, text) {
+        const elm = document.createElement(type);
+        if (classes.constructor === Array) {
+            for (var i = 0; i < classes.length; i++) {
+                elm.classList.add(classes[i]);
+            }
         } else {
             elm.className = classes;
         }
-        if(text)
+        if (text)
             elm.textContent = text;
         return elm;
     };
-    
-    var makeText = function(text) {
+
+    const makeText = function (text) {
         return document.createTextNode(text);
     };
-    
-    var makeButton = function(text, classes, click, type) {
-        var elm = makeElement(type || 'button', classes, text);
-        if(text && typeof text === "function") {
+
+    const makeButton = function (text, classes, click, type) {
+        const elm = makeElement(type || 'button', classes, text);
+        if (text && typeof text === "function") {
             elm.textContent = text();
-            elm.onclick = function(evt) {
+            elm.onclick = evt => {
                 click(evt);
                 elm.textContent = text();
             };
@@ -174,90 +217,148 @@ window.Spamtracker = (function(target, siterooms) {
         }
         return elm;
     };
-    
-    var createDOMSelectionListPerSite = function(site, friendlyName, iconUrl) {
-        var icon = makeElement('img', [], '');
-        var soundSelector = makeElement('select', [], '');
-        
-        var iconCell = makeElement('td', [], '');
-        var siteNameCell = makeElement('td', [], friendlyName);
-        var soundCell = makeElement('td', [], '');
-        var selectDialog = makeElement('select', [], '');
-        
-        var row = makeElement('tr', [], '');
-        
+
+    const createDOMSelectionListForSite = function (site, friendlyName, iconUrl) {
+        preloadSoundList(true);
+        const icon = makeElement('img', [], '');
+        const soundSelect = makeElement('select', [], '');
+        const soundTest = makeElement('a', [], '►');
+
+        const iconCell = makeElement('td', [], '');
+        const siteNameCell = makeElement('td', [], friendlyName);
+        const soundCell = makeElement('td', [], '');
+
+        const row = makeElement('tr', [], '');
+
         icon.src = iconUrl;
-        var selectedSound = userSounds;
-        var keys = [];
-        for(let key in defaultSounds) {
-            if (!defaultSounds.hasOwnProperty(key)) continue;
-            if (userSounds[key]) continue;
+        icon.height = 16;
+        let selectedSound = userSounds;
+        const keys = [];
+        for (let key in defaultSounds) {
+            if (!defaultSounds.hasOwnProperty(key))
+                continue;
+            if (userSounds[key])
+                continue;
             keys.push(key);
         }
-        for(let key in userSounds) {
-            if (!userSounds.hasOwnProperty(key)) continue;
+        for (let key in userSounds) {
+            if (!userSounds.hasOwnProperty(key))
+                continue;
             keys.push(key);
         }
-        if(keys.indexOf(selectedSound) === -1) {
-            if(keys.indexOf(defaultSound) === -1) {
+        if (keys.indexOf(selectedSound) === -1) {
+            if (keys.indexOf(defaultSound) === -1) {
                 console.log("Default sound updated, because previous one was missing");
                 defaultSound = Object.keys(defaultSounds)[0];
             }
             selectedSound = defaultSound;
         }
-        for(var i = 0; i < keys.length; i++) {
-            let option = makeElement('option', [], keys[i]);
-            options.value = keys[i];
-            if(keys[i] === selectedSound) {
-                options.selected = true;
+        for (let i = 0; i < keys.length; i++) {
+            const option = makeElement('option', [], keys[i]);
+            option.value = keys[i];
+            if (keys[i] === selectedSound) {
+                option.selected = true;
             }
+            soundSelect.append(option);
         }
-        
-        iconCell.append(iconDom);
-        
+        soundSelect.addEventListener('change', () => {
+            if (soundSelect.value === defaultSound) {
+                delete perSiteSounds[site];
+            } else {
+                perSiteSounds[site] = soundSelect.value;
+            }
+            setConfigOption("sounds-per-site", perSiteSounds, true);
+        });
+        soundTest.href = 'javascript:void(0)';
+        soundTest.addEventListener('click', () => playSoundFile(soundSelect.value));
+
+        iconCell.append(icon);
+        soundCell.append(soundSelect);
+        soundCell.append(soundTest);
+
         row.append(iconCell);
         row.append(siteNameCell);
         row.append(soundCell);
-        
-        
+
+        return row;
     };
 
-    var createDOMNodesForGui = function() {
+    const createDOMSelectionListForAllSites = function () {
+        if (domTabSites)
+            return;
+        const domTable = makeElement('table', 'spamtracker-table', '');
+        const domTableHead = makeElement('thead', [], '');
+        const domTableHeadRow = makeElement('tr', [], '');
+        const domTableHeadCellIcon = makeElement('th', [], '');
+        const domTableHeadCellName = makeElement('th', [], 'Name');
+        const domTableHeadCellSound = makeElement('th', [], 'Sound');
+        domTableHeadRow.append(domTableHeadCellIcon);
+        domTableHeadRow.append(domTableHeadCellName);
+        domTableHeadRow.append(domTableHeadCellSound);
+        domTableHead.append(domTableHeadRow);
+        const domTableBody = makeElement('tbody', [], '');
+        for (let i = 0; i < seSites.sites.length; i++) {
+            if (seSites.sites[i].site_url.includes('.meta.')) {
+                continue;
+            }
+            domTableBody.append(createDOMSelectionListForSite(seSites.sites[i].site_url.replace('https://', ''), seSites.sites[i].name, seSites.sites[i].favicon_url));
+        }
+        domTable.append(domTableHead);
+        domTable.append(domTableBody);
+        domTabSites = makeElement('div', ['spamtracker-tab-sound', 'spamtracker-tab'], '');
+        domTabSites.append(domTable);
+        domGui.append(domTabSites);
+
+        // The following is the only JQuery code inside this file...
+        if ($) {
+            $(domTable).DataTable({
+                aoColumns: [
+                    null,
+                    null,
+                    {bSearchable: false}
+                ]});
+        }
+    };
+
+    const createDOMNodesForGui = function () {
         // CSS
+        addStyleString(GM_getResourceText('DataTablesCSS'));
         addStyleString(css);
 
         // Footerbar
-        var insertRef = document.getElementById('footer-legal');
-        var separator = makeText(' | ');
+        const insertRef = document.getElementById('footer-legal');
+        const separator = makeText(' | ');
         insertRef.insertBefore(separator, insertRef.firstChild);
 
 
-        domSpamtracker = makeButton("spamtracker: " + (enabled ? "on" : "off"), [], function() {
+        domSpamtracker = makeButton("spamtracker: " + (enabled ? "on" : "off"), [], () => {
             domGuiHolder.classList.remove('hidden');
+            createDOMSelectionListForAllSites();
         }, 'a');
+        domSpamtracker.href = 'javascript:void(0)';
         insertRef.insertBefore(domSpamtracker, insertRef.firstChild);
 
         // Main gui
-        var domClose = makeButton("Close", "button spamtracker-header-btn-close", function() {
+        const domClose = makeButton("Close", "button spamtracker-header-btn-close", function () {
             domGuiHolder.classList.add('hidden');
         });
 
-        var domHeader = makeElement('h2', "spamtracker-header", "Spamtracker");
+        const domHeader = makeElement('h2', "spamtracker-header", "Spamtracker");
         domHeader.append(domClose);
-        
-        var domEnableDisable = makeButton(
-            function(){ return !enabled ? "Enable Spamtracker" : "Disable Spamtracker";},
-            "button spamtracker-header-btn",
-            function() {
-                enabled = !enabled;
-                setConfigOption("enabled", enabled, false);
-                domSpamtracker.textContent = "spamtracker: " + (enabled ? "on" : "off");
-            });
-        
-        var domBtnBar = makeElement("div", "spamtracker-header-btn-bar");
+
+        const domEnableDisable = makeButton(
+                () => !enabled ? "Enable Spamtracker" : "Disable Spamtracker",
+                "button spamtracker-header-btn",
+                () => {
+            enabled = !enabled;
+            setConfigOption("enabled", enabled, false);
+            domSpamtracker.textContent = "spamtracker: " + (enabled ? "on" : "off");
+        });
+
+        const domBtnBar = makeElement("div", "spamtracker-header-btn-bar");
         domBtnBar.append(domEnableDisable);
 
-        domGui = makeElement('div','spamtracker-popup');
+        domGui = makeElement('div', 'spamtracker-popup');
         domGui.append(domHeader);
         domGui.append(domBtnBar);
 
@@ -267,18 +368,18 @@ window.Spamtracker = (function(target, siterooms) {
         document.body.append(domGuiHolder);
     };
 
-    var addStyleString = function(str) {
-        var node = document.createElement('style');
+    const addStyleString = function (str) {
+        const node = document.createElement('style');
         node.innerHTML = str;
         document.head.appendChild(node);
     };
 
     /**
-    * Restores the callback to the orginal function
-    */
-    var restoreCallback = function() {
-        callback = function(msg) {
-            if('fire' in window && 'openReportPopupForMessage' in window.fire) {
+     * Restores the callback to the orginal function
+     */
+    const restoreCallback = function () {
+        callback = (msg) => {
+            if ('fire' in window && 'openReportPopupForMessage' in window.fire) {
                 window.focus();
                 fire.openReportPopupForMessage(msg.elm);
             } else {
@@ -288,63 +389,68 @@ window.Spamtracker = (function(target, siterooms) {
     };
 
     /**
-    * Useful for other scripts to interact with clicking on notifications
-    */
-    var setCallback = function(newCallback) {
+     * Useful for other scripts to interact with clicking on notifications
+     */
+    const setCallback = function (newCallback) {
         callback = newCallback;
     };
 
     /**
-    * Plays the sound effect
-    */
-    var playSound = function(msg) {
-        if(useSound) {
-            var siteSound = perSiteSounds[msg.site];
-            var soundUrl = defaultSounds[siteSound] || userSounds[siteSound] || defaultSounds[defaultSound];
-            if(!sound[soundUrl]) {
-                console.log("Sound " + soundUrl + " was not ready when we needed it, coming from " + siteSound + " on site " + msg.site);
-                prepareSound(soundUrl);
+     * Plays the sound effect
+     */
+    const playSound = function ( {site}) {
+        if (useSound) {
+            const siteSound = perSiteSounds[site];
+            playSoundFile(siteSound);
+    }
+    };
+
+    const playSoundFile = function (soundName) {
+        const soundUrl = defaultSounds[soundName] || userSounds[soundName] || defaultSounds[defaultSound];
+        if (!sound[soundUrl]) {
+            console.log("Sound " + soundUrl + " was not ready when we needed it, coming from " + soundName);
+            if (!prepareSound(soundUrl)) {
+                return false;
             }
-            sound[soundUrl].play();
         }
+        sound[soundUrl].play();
+        return true;
     };
 
     /**
-    * Creates a notification for a post
-    */
-    var notifyMe = function (msg) {
-        if(!enabled) {
+     * Creates a notification for a post
+     */
+    const notifyMe = function (msg) {
+        if (!enabled) {
             return;
         }
         playSound(msg);
-        var notification = new Notification(msg.title, {
+        const notification = new Notification(msg.title, {
             body: msg.message,
             icon: '//i.stack.imgur.com/WyV1l.png?s=128&g=1'
         });
-        notification.onshow = function() {
-            if(notification.closed)
+        notification.onshow = () => {
+            if (notification.closed)
                 notification.close();
-            msg.timeout = window.setTimeout(function() {
-                dismissNotification(msg.id);
-            }, 15000);
+            msg.timeout = window.setTimeout(() => dismissNotification(msg.id), 15000);
         };
-        notification.onclick = function() {
+        notification.onclick = () => {
             callback(msg);
             dismissNotification(msg.id);
         };
         notifications[msg.id] = notification;
         notificationsQueue.push(msg.id);
 
-        if(notificationsQueue.length > maxNotifications) {
+        if (notificationsQueue.length > maxNotifications) {
             dismissNotification(notificationsQueue.shift());
         }
     };
 
     /**
-    * Close notification by id
-    */
-    var dismissNotification = function(id) {
-        if(notifications[id]) {
+     * Close notification by id
+     */
+    const dismissNotification = function (id) {
+        if (notifications[id]) {
             notifications[id].closed = true;
             notifications[id].close();
             delete notifications[id];
@@ -352,24 +458,24 @@ window.Spamtracker = (function(target, siterooms) {
     };
 
     /**
-    * Progress a message in chat by element
-    */
-    var processChatMessage = function(message) {
+     * Progress a message in chat by element
+     */
+    const processChatMessage = function (message) {
         //console.log("Chat message!" + message.children[1].innerHTML);
-        if(!message || !message.children[1]) {
+        if (!message || !message.children[1]) {
             return false;
         }
-        var smoke = /\/\/goo.gl\/eLDYqh/i;
-        var sePostRegex = /\/\/[a-z]*.stackexchange.com|stackoverflow.com|superuser.com|serverfault.com|askubuntu.com|stackapps.com|mathoverflow.net/i;
-        var content = message.children[1].innerHTML;
-        var textContent = message.children[1].textContent;
+        const smoke = /\/\/goo.gl\/eLDYqh/i;
+        const sePostRegex = /\/\/[a-z]*.stackexchange.com|stackoverflow.com|superuser.com|serverfault.com|askubuntu.com|stackapps.com|mathoverflow.net/i;
+        const content = message.children[1].innerHTML;
+        const textContent = message.children[1].textContent;
 
         if (!smoke.test(content) || !sePostRegex.test(content)) {
             return false;
         }
         //console.log("Match!");
-        var ch = message.children[1].children;
-        var msg = {};
+        const ch = message.children[1].children;
+        const msg = {};
         msg.site = false;
         msg.qId = false;
 
@@ -378,8 +484,8 @@ window.Spamtracker = (function(target, siterooms) {
             if (ch[i].tagName !== 'A') {
                 continue;
             }
-            var hash = ch[i].href.split('#');
-            var path = ch[i].href.split('/');
+            const hash = ch[i].href.split('#');
+            const path = ch[i].href.split('/');
             if (path[3] === 'questions' && hash.length > 1) {
                 msg.site = path[2];
                 msg.qId = hash[1];
@@ -391,11 +497,11 @@ window.Spamtracker = (function(target, siterooms) {
         if (!msg.site || !msg.qId) {
             return false;
         }
-        var parts = textContent.indexOf(': ');
+        const parts = textContent.indexOf(': ');
         if (parts < 0) {
             return false;
         }
-        var prefixStart = textContent.indexOf('] ');
+        const prefixStart = textContent.indexOf('] ');
         msg.id = message.id;
         msg.reason = textContent.substring(prefixStart + 2, parts).split(', ');
         msg.title = "[ SmokeDetector ] \n" + msg.reason.join("\n");
@@ -407,78 +513,82 @@ window.Spamtracker = (function(target, siterooms) {
     };
 
     /**
-    * Register an observer on the .messages element
-    */
-    var registerMessageObserver = function(elm) {
-        if(elm === lastMessageObserverTarget) {
+     * Register an observer on the .messages element
+     */
+    const registerMessageObserver = function (elm) {
+        if (elm === lastMessageObserverTarget) {
             return;
         }
 
         lastMessageObserverTarget = elm;
-        if(lastMessageObserver !== undefined) {
+        if (lastMessageObserver !== undefined) {
             lastMessageObserver.disconnect();
         }
-        var children = elm.getElementsByClassName('message');
-        if(children.length) {
+        const children = elm.getElementsByClassName('message');
+        if (children.length) {
             processChatMessage(children[children.length - 1]);
         }
-        lastMessageObserver = new MutationObserver(function(mutations) {
-            processChatMessage(children[children.length - 1]);
-        });
-        lastMessageObserver.observe(elm, { childList: true });
+        lastMessageObserver = new MutationObserver(() => processChatMessage(children[children.length - 1]));
+        lastMessageObserver.observe(elm, {childList: true});
     };
 
     /**
-    * Register an observer on the .monolog.user-container.user-{*}  element
-    */
-    var registerMonologObserver = function(elm) {
-        var children = elm.getElementsByClassName('messages');
-        if(children.length) {
+     * Register an observer on the .monolog.user-container.user-{*}  element
+     */
+    const registerMonologObserver = function (elm) {
+        const children = elm.getElementsByClassName('messages');
+        if (children.length) {
             registerMessageObserver(children[children.length - 1]);
         } else {
-            var observer = new MutationObserver(function(mutations) {
+            const observer = new MutationObserver(() => {
                 registerMessageObserver(children[children.length - 1]);
                 observer.disconnect();
             });
-            observer.observe(elm, { childList: true });
+            observer.observe(elm, {childList: true});
         }
     };
 
     /**
-    * Register an observer on the #chat element
-    */
-    var registerObserver = function() {
+     * Register an observer on the #chat element
+     */
+    const registerObserver = function () {
         Notification.requestPermission();
-        var children = target.getElementsByClassName('monologue');
-        if(children.length) {
+        const children = target.getElementsByClassName('monologue');
+        if (children.length) {
             registerMonologObserver(children[children.length - 1]);
         }
-        var observer = new MutationObserver(function(mutations) {
-            registerMonologObserver(children[children.length - 1]);
-        });
-        observer.observe(target, { childList: true });
+        const observer = new MutationObserver(() => registerMonologObserver(children[children.length - 1]));
+        observer.observe(target, {childList: true});
     };
 
-    var getConfigOption = function(key, defaultValue, global) {
-        var data = JSON.parse(window.localStorage.getItem(metaData.name + '-' + (global ? sitename + '-' : '') + key));
-        if(data === null) {
+    const sortByKey = function (array, key) {
+        return array.sort((a, b) => {
+            var x = a[key];
+            var y = b[key];
+            return ((x < y) ? -1 : ((x > y) ? 1 : 0));
+        });
+    };
+
+    const getConfigOption = function (key, defaultValue, global) {
+        const data = JSON.parse(window.localStorage.getItem(metaData.name + '-' + (!global ? sitename + '-' : '') + key));
+        if (data === null) {
             setConfigOption(key, defaultValue, global);
             return defaultValue;
         }
         return data;
     };
 
-    var setConfigOption = function(key, value, global) {
-        window.localStorage.setItem(metaData.name + '-' + (global ? sitename + '-' : '') + key, JSON.stringify(value));
+    const setConfigOption = function (key, value, global) {
+        window.localStorage.setItem(metaData.name + '-' + (!global ? sitename + '-' : '') + key, JSON.stringify(value));
     };
 
     init();
 
-    return {
+    const self = {
         setCallback: setCallback,
         restoreCallback: restoreCallback,
         processChatMessage: processChatMessage,
         metaData: metaData
     };
-
+    return self;
 })(document.getElementById('chat'), document.getElementById('siterooms'));
