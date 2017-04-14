@@ -465,7 +465,7 @@ window.Spamtracker = (function (target, siterooms) {
         if (!message || !message.children[1]) {
             return false;
         }
-        const smoke = /\/\/goo.gl\/eLDYqh/i;
+        const smoke = /\/\/(goo.gl\/eLDYqh|Charcoal-SE\/SmokeDetector)/i;
         const sePostRegex = /\/\/[a-z]*.stackexchange.com|stackoverflow.com|superuser.com|serverfault.com|askubuntu.com|stackapps.com|mathoverflow.net/i;
         const content = message.children[1].innerHTML;
         const textContent = message.children[1].textContent;
