@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SpamtrackerReboot
 // @namespace    http://tampermonkey.net/
-// @version      0.8
+// @version      0.9
 // @description  Rewrite of the spamtracker project, this userscript will notify you using sound and a notification if a new spam post has been posted in any smoke detector supported rooms
 // @author       Ferrybig
 // @match        *://chat.meta.stackexchange.com/*
@@ -173,6 +173,53 @@ window.Spamtracker = (function(target, siterooms) {
             elm.onclick = click;
         }
         return elm;
+    };
+    
+    var createDOMSelectionListPerSite = function(site, friendlyName, iconUrl) {
+        var icon = makeElement('img', [], '');
+        var soundSelector = makeElement('select', [], '');
+        
+        var iconCell = makeElement('td', [], '');
+        var siteNameCell = makeElement('td', [], friendlyName);
+        var soundCell = makeElement('td', [], '');
+        var selectDialog = makeElement('select', [], '');
+        
+        var row = makeElement('tr', [], '');
+        
+        icon.src = iconUrl;
+        var selectedSound = userSounds;
+        var keys = [];
+        for(let key in defaultSounds) {
+            if (!defaultSounds.hasOwnProperty(key)) continue;
+            if (userSounds[key]) continue;
+            keys.push(key);
+        }
+        for(let key in userSounds) {
+            if (!userSounds.hasOwnProperty(key)) continue;
+            keys.push(key);
+        }
+        if(keys.indexOf(selectedSound) === -1) {
+            if(keys.indexOf(defaultSound) === -1) {
+                console.log("Default sound updated, because previous one was missing");
+                defaultSound = Object.keys(defaultSounds)[0];
+            }
+            selectedSound = defaultSound;
+        }
+        for(var i = 0; i < keys.length; i++) {
+            let option = makeElement('option', [], keys[i]);
+            options.value = keys[i];
+            if(keys[i] === selectedSound) {
+                options.selected = true;
+            }
+        }
+        
+        iconCell.append(iconDom);
+        
+        row.append(iconCell);
+        row.append(siteNameCell);
+        row.append(soundCell);
+        
+        
     };
 
     var createDOMNodesForGui = function() {
