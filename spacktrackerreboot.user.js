@@ -16,9 +16,8 @@
 // ==/UserScript==
 /* global GM_info, Notification, fire, GM_setValue, GM_getValue, unsafeWindow */
 
-unsafeWindow.Spamtracker = (function (target, siterooms, window) {
+unsafeWindow.Spamtracker = (function(target, siterooms, window) {
     'use strict';
-
     // Defaults
     const defaultSounds = {
         metastackexchange: '//cdn-chat.sstatic.net/chat/meta2.mp3',
@@ -29,58 +28,56 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
         askubuntu: '//cdn-chat.sstatic.net/chat/ubuntu.mp3'
     };
     const css =
-            ".spamtracker-popup-bg {" +
-            "  position: fixed;" +
-            "  width: 100%;" +
-            "  height: 100%;" +
-            "  top: 0;" +
-            "  left: 0;" +
-            "  background-color: rgba(0, 0, 0, 0.5);" +
-            "  z-index: 100;" +
-            "  text-align: center;" +
-            "}" +
-            ".spamtracker-popup-bg.hidden {" +
-            "  display: none;" +
-            "}" +
-            ".spamtracker-popup-bg:before {" +
-            "  content:''; " +
-            "  display:inline-block; " +
-            "  height:100%; " +
-            "  vertical-align:middle;" +
-            "}" +
-            ".spamtracker-popup {" +
-            "  width: 800px;" +
-            "  display: inline-block;" +
-            "  background: white;" +
-            "  padding: 20px;" +
-            "  border-radius: 10px;" +
-            "  vertical-align: middle;" +
-            "  box-shadow: 0 0 20px 2px rgba(0, 0, 0, 0.5);" +
-            "}" +
-            ".spamtracker-header {" +
-            "  border-top-left-radius: 10px;" +
-            "  border-top-right-radius: 10px;" +
-            "  background-color: gray;" +
-            "  margin: -20px -20px 1rem;" +
-            "  padding: 10px;" +
-            "  font-size: 3em;" +
-            "}" +
-            ".spamtracker-header-btn {" +
-            "  width: 10rem;" +
-            "}" +
-            ".spamtracker-header-btn-close {" +
-            "  width: 4rem;" +
-            "  float: right;" +
-            "}" +
-            ".spamtracker-header-btn-bar {" +
-            "}" +
-            ".spamtracker-tab {" +
-            "}" +
-            ".spamtracker-table {" +
-            "  width: 100%;" +
-            "}"
-            ;
-
+        '.spamtracker-popup-bg {' +
+        '  position: fixed;' +
+        '  width: 100%;' +
+        '  height: 100%;' +
+        '  top: 0;' +
+        '  left: 0;' +
+        '  background-color: rgba(0, 0, 0, 0.5);' +
+        '  z-index: 100;' +
+        '  text-align: center;' +
+        '}' +
+        '.spamtracker-popup-bg.hidden {' +
+        '  display: none;' +
+        '}' +
+        '.spamtracker-popup-bg:before {' +
+        "  content:''; " +
+        '  display:inline-block; ' +
+        '  height:100%; ' +
+        '  vertical-align:middle;' +
+        '}' +
+        '.spamtracker-popup {' +
+        '  width: 800px;' +
+        '  display: inline-block;' +
+        '  background: white;' +
+        '  padding: 20px;' +
+        '  border-radius: 10px;' +
+        '  vertical-align: middle;' +
+        '  box-shadow: 0 0 20px 2px rgba(0, 0, 0, 0.5);' +
+        '}' +
+        '.spamtracker-header {' +
+        '  border-top-left-radius: 10px;' +
+        '  border-top-right-radius: 10px;' +
+        '  background-color: gray;' +
+        '  margin: -20px -20px 1rem;' +
+        '  padding: 10px;' +
+        '  font-size: 3em;' +
+        '}' +
+        '.spamtracker-header-btn {' +
+        '  width: 10rem;' +
+        '}' +
+        '.spamtracker-header-btn-close {' +
+        '  width: 4rem;' +
+        '  float: right;' +
+        '}' +
+        '.spamtracker-header-btn-bar {' +
+        '}' +
+        '.spamtracker-tab {' +
+        '}' +
+        '.spamtracker-table {' +
+        '  width: 100%;' +
+        '}';
 
     // Settings
     let useSound = true;
@@ -96,11 +93,11 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
 
     // Caches
     const sound = {};
-    const sitename = siterooms ? siterooms.href.split("host=")[1] : undefined;
+    const sitename = siterooms ? siterooms.href.split('host=')[1] : undefined;
     let callback;
     let lastMessageObserverTarget;
     let lastMessageObserver;
-    let seSites = {sites: [], lastUpdate: 0};
+    let seSites = { sites: [], lastUpdate: 0 };
     /**
      * List of open web notification
      */
@@ -117,7 +114,7 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
     /**
      * Loads this userscript
      */
-    const init = function () {
+    const init = function() {
         loadSeSites();
         loadSettings();
         registerObserver();
@@ -127,33 +124,47 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
         info('Started!');
     };
 
-    const loadSeSites = function () {
-        seSites = getConfigOption("sites", seSites, true) || seSites;
+    const loadSeSites = function() {
+        seSites = getConfigOption('sites', seSites, true) || seSites;
         const ONE_MONTH = 28 * 24 * 60 * 60 * 1000; /* ms */
-        if (seSites.sites.length === 0 || ((new Date()) - seSites.lastUpdate) > ONE_MONTH) {
+        if (
+            seSites.sites.length === 0 ||
+            new Date() - seSites.lastUpdate > ONE_MONTH
+        ) {
             const xhttp = new XMLHttpRequest();
-            info("Requesting api.stackexchange.com/2.2/sites");
+            info('Requesting api.stackexchange.com/2.2/sites');
             xhttp.onreadystatechange = () => {
                 if (xhttp.readyState === 4 && xhttp.status === 200) {
-                    seSites.sites = sortByKey(JSON.parse(xhttp.responseText).items, 'name');
+                    seSites.sites = sortByKey(
+                        JSON.parse(xhttp.responseText).items,
+                        'name'
+                    );
                     seSites.lastUpdate = new Date();
-                    setConfigOption("sites", seSites, true);
+                    setConfigOption('sites', seSites, true);
                 }
             };
-            xhttp.open('GET', 'https://api.stackexchange.com/2.2/sites?pagesize=10000&filter=Q-ks*xGqUVcTlzkJZ', true);
+            xhttp.open(
+                'GET',
+                'https://api.stackexchange.com/2.2/sites?pagesize=10000&filter=Q-ks*xGqUVcTlzkJZ',
+                true
+            );
             xhttp.send();
         }
     };
 
-    const loadSettings = function () {
-        userSounds = getConfigOption("sounds", userSounds, true);
-        perSiteSounds = getConfigOption("sounds-per-site", perSiteSounds, true);
-        enabled = getConfigOption("enabled", true, false);
-        debugLevel = getConfigOption("debug", debugLevel, false, false);
-        defaultSound = getConfigOption("defaultsound", "metastackexchange", true);
+    const loadSettings = function() {
+        userSounds = getConfigOption('sounds', userSounds, true);
+        perSiteSounds = getConfigOption('sounds-per-site', perSiteSounds, true);
+        enabled = getConfigOption('enabled', true, false);
+        debugLevel = getConfigOption('debug', debugLevel, false, false);
+        defaultSound = getConfigOption(
+            'defaultsound',
+            'metastackexchange',
+            true
+        );
     };
 
-    const prepareSound = function (url) {
+    const prepareSound = function(url) {
         if (url) {
             if (!sound[url]) {
                 sound[url] = new Audio(url);
@@ -166,32 +177,31 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
         return false;
     };
 
-    const preloadSoundList = function (loadAll) {
+    const preloadSoundList = function(loadAll) {
         if (loadAll) {
             for (let key in userSounds) {
-                if (!userSounds.hasOwnProperty(key))
-                    continue;
+                if (!userSounds.hasOwnProperty(key)) continue;
                 prepareSound(userSounds[key]);
             }
             for (let key in defaultSounds) {
-                if (!defaultSounds.hasOwnProperty(key))
-                    continue;
+                if (!defaultSounds.hasOwnProperty(key)) continue;
                 prepareSound(defaultSounds[key]);
             }
         } else {
             for (let i in perSiteSounds) {
-                if (!perSiteSounds.hasOwnProperty(i))
-                    continue;
+                if (!perSiteSounds.hasOwnProperty(i)) continue;
                 const soundName = perSiteSounds[i];
-                const soundUrl = userSounds[soundName] || defaultSounds[soundName];
+                const soundUrl =
+                    userSounds[soundName] || defaultSounds[soundName];
                 prepareSound(soundUrl);
             }
-            const soundUrl = userSounds[defaultSound] || defaultSounds[defaultSound];
+            const soundUrl =
+                userSounds[defaultSound] || defaultSounds[defaultSound];
             prepareSound(soundUrl);
         }
     };
 
-    const logPrepare = function (level, type) {
+    const logPrepare = function(level, type) {
         return (...message) => {
             if (level <= debugLevel) {
                 message.unshift('[SpamtrackerReboot][' + type + ']');
@@ -199,13 +209,13 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
             }
         };
     };
-    
+
     const error = logPrepare(0, 'error');
     const warn = logPrepare(1, 'warn');
     const info = logPrepare(2, 'info');
     const debug = logPrepare(3, 'debug');
 
-    const makeElement = function (type, classes = [], text = '') {
+    const makeElement = function(type, classes = [], text = '') {
         const elm = document.createElement(type);
         if (classes.constructor === Array) {
             for (var i = 0; i < classes.length; i++) {
@@ -214,18 +224,17 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
         } else {
             elm.className = classes;
         }
-        if (text)
-            elm.textContent = text;
+        if (text) elm.textContent = text;
         return elm;
     };
 
-    const makeText = function (text) {
+    const makeText = function(text) {
         return document.createTextNode(text);
     };
 
-    const makeButton = function (text, classes, click, type) {
+    const makeButton = function(text, classes, click, type) {
         const elm = makeElement(type || 'button', classes, text);
-        if (text && typeof text === "function") {
+        if (text && typeof text === 'function') {
             elm.textContent = text();
             elm.onclick = evt => {
                 click(evt);
@@ -237,7 +246,11 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
         return elm;
     };
 
-    const createDOMSelectionListForSite = function (site, friendlyName, iconUrl) {
+    const createDOMSelectionListForSite = function(
+        site,
+        friendlyName,
+        iconUrl
+    ) {
         preloadSoundList(true);
         const icon = makeElement('img');
         const soundSelect = makeElement('select');
@@ -254,20 +267,19 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
         let selectedSound = userSounds;
         const keys = [];
         for (let key in defaultSounds) {
-            if (!defaultSounds.hasOwnProperty(key))
-                continue;
-            if (userSounds[key])
-                continue;
+            if (!defaultSounds.hasOwnProperty(key)) continue;
+            if (userSounds[key]) continue;
             keys.push(key);
         }
         for (let key in userSounds) {
-            if (!userSounds.hasOwnProperty(key))
-                continue;
+            if (!userSounds.hasOwnProperty(key)) continue;
             keys.push(key);
         }
         if (keys.indexOf(selectedSound) === -1) {
             if (keys.indexOf(defaultSound) === -1) {
-                console.log("Default sound updated, because previous one was missing");
+                console.log(
+                    'Default sound updated, because previous one was missing'
+                );
                 defaultSound = Object.keys(defaultSounds)[0];
             }
             selectedSound = defaultSound;
@@ -286,10 +298,12 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
             } else {
                 perSiteSounds[site] = soundSelect.value;
             }
-            setConfigOption("sounds-per-site", perSiteSounds, true);
+            setConfigOption('sounds-per-site', perSiteSounds, true);
         });
         soundTest.href = 'javascript:void(0)';
-        soundTest.addEventListener('click', () => playSoundFile(soundSelect.value));
+        soundTest.addEventListener('click', () =>
+            playSoundFile(soundSelect.value)
+        );
 
         iconCell.append(icon);
         soundCell.append(soundSelect);
@@ -302,11 +316,14 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
         return row;
     };
 
-    const createDOMSelectionListForAllSites = function () {
-        if (domTabSites)
-            return;
+    const createDOMSelectionListForAllSites = function() {
+        if (domTabSites) return;
         debug('Creating sound tab');
-        const domTable = makeElement('table', ['spamtracker-table', 'display', 'compact']);
+        const domTable = makeElement('table', [
+            'spamtracker-table',
+            'display',
+            'compact'
+        ]);
         const domTableHead = makeElement('thead');
         const domTableHeadRow = makeElement('tr');
         const domTableHeadCellIcon = makeElement('th');
@@ -321,30 +338,36 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
             if (seSites.sites[i].site_url.includes('.meta.')) {
                 continue;
             }
-            domTableBody.append(createDOMSelectionListForSite(seSites.sites[i].site_url.replace('https://', ''), seSites.sites[i].name, seSites.sites[i].favicon_url));
+            domTableBody.append(
+                createDOMSelectionListForSite(
+                    seSites.sites[i].site_url.replace('https://', ''),
+                    seSites.sites[i].name,
+                    seSites.sites[i].favicon_url
+                )
+            );
         }
         domTable.append(domTableHead);
         domTable.append(domTableBody);
-        domTabSites = makeElement('div', ['spamtracker-tab-sound', 'spamtracker-tab'], '');
+        domTabSites = makeElement(
+            'div',
+            ['spamtracker-tab-sound', 'spamtracker-tab'],
+            ''
+        );
         domTabSites.append(domTable);
         domGui.append(domTabSites);
 
         // The following is the only JQuery code inside this file...
         if ($) {
             $(domTable).DataTable({
-                aoColumns: [
-                    null,
-                    null,
-                    {bSearchable: false}
-                ],
-                scrollY: "60vh",
+                aoColumns: [null, null, { bSearchable: false }],
+                scrollY: '60vh',
                 scrollCollapse: true,
                 paging: false
             });
         }
     };
 
-    const createDOMNodesForGui = function () {
+    const createDOMNodesForGui = function() {
         // CSS
         addStyleUrl(GM_getResourceURL('DataTablesCSS'));
         addStyleString(css);
@@ -354,32 +377,46 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
         const separator = makeText(' | ');
         insertRef.insertBefore(separator, insertRef.firstChild);
 
-
-        domSpamtracker = makeButton("spamtracker: " + (enabled ? "on" : "off"), [], () => {
-            domGuiHolder.classList.remove('hidden');
-            createDOMSelectionListForAllSites();
-        }, 'a');
+        domSpamtracker = makeButton(
+            'spamtracker: ' + (enabled ? 'on' : 'off'),
+            [],
+            () => {
+                domGuiHolder.classList.remove('hidden');
+                createDOMSelectionListForAllSites();
+            },
+            'a'
+        );
         domSpamtracker.href = 'javascript:void(0)';
         insertRef.insertBefore(domSpamtracker, insertRef.firstChild);
 
         // Main gui
-        const domClose = makeButton("Close", "button spamtracker-header-btn-close", function () {
-            domGuiHolder.classList.add('hidden');
-        });
+        const domClose = makeButton(
+            'Close',
+            'button spamtracker-header-btn-close',
+            function() {
+                domGuiHolder.classList.add('hidden');
+            }
+        );
 
-        const domHeader = makeElement('h2', "spamtracker-header", "Spamtracker");
+        const domHeader = makeElement(
+            'h2',
+            'spamtracker-header',
+            'Spamtracker'
+        );
         domHeader.append(domClose);
 
         const domEnableDisable = makeButton(
-                () => !enabled ? "Enable Spamtracker" : "Disable Spamtracker",
-                "button spamtracker-header-btn",
-                () => {
-            enabled = !enabled;
-            setConfigOption("enabled", enabled, false);
-            domSpamtracker.textContent = "spamtracker: " + (enabled ? "on" : "off");
-        });
+            () => (!enabled ? 'Enable Spamtracker' : 'Disable Spamtracker'),
+            'button spamtracker-header-btn',
+            () => {
+                enabled = !enabled;
+                setConfigOption('enabled', enabled, false);
+                domSpamtracker.textContent =
+                    'spamtracker: ' + (enabled ? 'on' : 'off');
+            }
+        );
 
-        const domBtnBar = makeElement("div", "spamtracker-header-btn-bar");
+        const domBtnBar = makeElement('div', 'spamtracker-header-btn-bar');
         domBtnBar.append(domEnableDisable);
 
         domGui = makeElement('div', 'spamtracker-popup');
@@ -392,12 +429,12 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
         document.body.append(domGuiHolder);
     };
 
-    const addStyleString = function (str) {
+    const addStyleString = function(str) {
         const node = makeElement('style');
         node.innerHTML = str;
         document.head.appendChild(node);
     };
-    const addStyleUrl = function (str) {
+    const addStyleUrl = function(str) {
         const node = makeElement('link');
         node.rel = 'stylesheet';
         node.href = str;
@@ -407,9 +444,11 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
     /**
      * Restores the callback to the orginal function
      */
-    const restoreCallback = function () {
-        callback = (msg) => {
-            if ('fire' in window && 'openReportPopupForMessage' in window.fire) {
+    const restoreCallback = function() {
+        callback = msg => {
+            if (
+                'fire' in window && 'openReportPopupForMessage' in window.fire
+            ) {
                 window.focus();
                 fire.openReportPopupForMessage(msg.elm);
             } else {
@@ -421,25 +460,33 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
     /**
      * Useful for other scripts to interact with clicking on notifications
      */
-    const setCallback = function (newCallback) {
+    const setCallback = function(newCallback) {
         callback = newCallback;
     };
 
     /**
      * Plays the sound effect
      */
-    const playSound = function ( {site}) {
+    const playSound = function({ site }) {
         if (useSound) {
             const siteSound = perSiteSounds[site];
-            debug("Playing song " + siteSound + " for site " + site);
+            debug('Playing song ' + siteSound + ' for site ' + site);
             playSoundFile(siteSound);
-    }
+        }
     };
 
-    const playSoundFile = function (soundName) {
-        const soundUrl = defaultSounds[soundName] || userSounds[soundName] || defaultSounds[defaultSound];
+    const playSoundFile = function(soundName) {
+        const soundUrl =
+            defaultSounds[soundName] ||
+            userSounds[soundName] ||
+            defaultSounds[defaultSound];
         if (!sound[soundUrl]) {
-            warn("Sound " + soundUrl + " was not ready when we needed it, coming from " + soundName);
+            warn(
+                'Sound ' +
+                    soundUrl +
+                    ' was not ready when we needed it, coming from ' +
+                    soundName
+            );
             if (!prepareSound(soundUrl)) {
                 return false;
             }
@@ -451,20 +498,22 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
     /**
      * Creates a notification for a post
      */
-    const notifyMe = function (msg) {
+    const notifyMe = function(msg) {
         if (!enabled) {
             return;
         }
-        debug("Notify user about: ", msg);
+        debug('Notify user about: ', msg);
         playSound(msg);
         const notification = new Notification(msg.title, {
             body: msg.message,
             icon: '//i.stack.imgur.com/WyV1l.png?s=128&g=1'
         });
         notification.onshow = () => {
-            if (notification.closed)
-                notification.close();
-            msg.timeout = window.setTimeout(() => dismissNotification(msg.id), 15000);
+            if (notification.closed) notification.close();
+            msg.timeout = window.setTimeout(
+                () => dismissNotification(msg.id),
+                15000
+            );
         };
         notification.onclick = () => {
             callback(msg);
@@ -481,7 +530,7 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
     /**
      * Close notification by id
      */
-    const dismissNotification = function (id) {
+    const dismissNotification = function(id) {
         if (notifications[id]) {
             notifications[id].closed = true;
             notifications[id].close();
@@ -492,7 +541,7 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
     /**
      * Progress a message in chat by element
      */
-    const processChatMessage = function (message) {
+    const processChatMessage = function(message) {
         //console.log("Chat message!" + message.children[1].innerHTML);
         if (!message || !message.children[1]) {
             return false;
@@ -536,7 +585,7 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
         const prefixStart = textContent.indexOf('] ');
         msg.id = message.id;
         msg.reason = textContent.substring(prefixStart + 2, parts).split(', ');
-        msg.title = "[ SmokeDetector ] \n" + msg.reason.join("\n");
+        msg.title = '[ SmokeDetector ] \n' + msg.reason.join('\n');
         msg.message = textContent.substring(parts + 1);
         msg.url = '//' + msg.site + '/q/' + msg.qId;
         msg.elm = message;
@@ -544,15 +593,15 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
         return true;
     };
 
-    const setDebugLevel = function (level) {
+    const setDebugLevel = function(level) {
         debugLevel = level - 0;
-        setConfigOption("debug", debugLevel, false);
+        setConfigOption('debug', debugLevel, false);
     };
 
     /**
      * Register an observer on the .messages element
      */
-    const registerMessageObserver = function (elm) {
+    const registerMessageObserver = function(elm) {
         if (elm === lastMessageObserverTarget) {
             return;
         }
@@ -565,14 +614,16 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
         if (children.length) {
             processChatMessage(children[children.length - 1]);
         }
-        lastMessageObserver = new MutationObserver(() => processChatMessage(children[children.length - 1]));
-        lastMessageObserver.observe(elm, {childList: true});
+        lastMessageObserver = new MutationObserver(() =>
+            processChatMessage(children[children.length - 1])
+        );
+        lastMessageObserver.observe(elm, { childList: true });
     };
 
     /**
      * Register an observer on the .monolog.user-container.user-{*}  element
      */
-    const registerMonologObserver = function (elm) {
+    const registerMonologObserver = function(elm) {
         const children = elm.getElementsByClassName('messages');
         if (children.length) {
             registerMessageObserver(children[children.length - 1]);
@@ -581,50 +632,58 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
                 registerMessageObserver(children[children.length - 1]);
                 observer.disconnect();
             });
-            observer.observe(elm, {childList: true});
+            observer.observe(elm, { childList: true });
         }
     };
 
     /**
      * Register an observer on the #chat element
      */
-    const registerObserver = function () {
+    const registerObserver = function() {
         Notification.requestPermission();
         const children = target.getElementsByClassName('monologue');
         if (children.length) {
             registerMonologObserver(children[children.length - 1]);
         }
-        const observer = new MutationObserver(() => registerMonologObserver(children[children.length - 1]));
-        observer.observe(target, {childList: true});
+        const observer = new MutationObserver(() =>
+            registerMonologObserver(children[children.length - 1])
+        );
+        observer.observe(target, { childList: true });
     };
 
-    const sortByKey = function (array, key) {
+    const sortByKey = function(array, key) {
         return array.sort((a, b) => {
             var x = a[key];
             var y = b[key];
-            return ((x < y) ? -1 : ((x > y) ? 1 : 0));
+            return x < y ? -1 : x > y ? 1 : 0;
         });
     };
 
-    const getConfigOption = function (key, defaultValue, global = true, saveDefault = true) {
+    const getConfigOption = function(
+        key,
+        defaultValue,
+        global = true,
+        saveDefault = true
+    ) {
         const storageKey = (!global ? sitename + '-' : '') + key;
         let value;
         if (GM_setValue && GM_getValue) {
             value = GM_getValue(storageKey);
         }
         if (value === undefined) {
-            value = window.localStorage.getItem(metaData.name + '-' + storageKey);
+            value = window.localStorage.getItem(
+                metaData.name + '-' + storageKey
+            );
         }
         const data = JSON.parse(value);
         if (data === null) {
-            if (saveDefault)
-                setConfigOption(key, defaultValue, global);
+            if (saveDefault) setConfigOption(key, defaultValue, global);
             return defaultValue;
         }
         return data;
     };
 
-    const setConfigOption = function (key, value, global) {
+    const setConfigOption = function(key, value, global) {
         const storageKey = (!global ? sitename + '-' : '') + key;
         const data = JSON.stringify(value);
         if (GM_setValue && GM_getValue) {
@@ -642,4 +701,8 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
         setDebugLevel: setDebugLevel
     };
     return self;
-})(document.getElementById('chat'), document.getElementById('siterooms'), unsafeWindow);
+})(
+    document.getElementById('chat'),
+    document.getElementById('siterooms'),
+    unsafeWindow
+);
