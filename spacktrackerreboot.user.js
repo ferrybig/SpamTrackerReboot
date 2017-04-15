@@ -1,5 +1,3 @@
-/* global GM_info, Notification, fire */
-
 // ==UserScript==
 // @name         SpamtrackerReboot
 // @version      0.9
@@ -11,10 +9,14 @@
 // @run-at       document-end
 // @require      https://cdn.datatables.net/1.10.13/js/jquery.dataTables.min.js#sha512=1ac1502c5a6774e6e7d3c77dd90d863f745371cd936d8a1620ab1c4a21173ffccfd327e435395df6658779ea87baad3b5ff84bf195110c7bc3187112ee820917
 // @resource     DataTablesCSS https://cdn.datatables.net/1.10.13/css/jquery.dataTables.min.css#sha512=c45f1efde68a4130b5d7b68f2441ba1a85d552fda2076772ba67bdc0fb8d05c21e0d81e89ab418cec18d0ca7d304d9a5504998c05d73f778c4c9f20bbeefaad3
-// @grant        GM_getResourceText
+// @grant        GM_getResourceURL
+// @grant        GM_setValue
+// @grant        GM_getValue
+// @grant        unsafeWindow
 // ==/UserScript==
+/* global GM_info, Notification, fire, GM_setValue, GM_getValue, unsafeWindow */
 
-window.Spamtracker = (function (target, siterooms) {
+unsafeWindow.Spamtracker = (function (target, siterooms, window) {
     'use strict';
 
     // Defaults
@@ -73,8 +75,6 @@ window.Spamtracker = (function (target, siterooms) {
             ".spamtracker-header-btn-bar {" +
             "}" +
             ".spamtracker-tab {" +
-            "  max-height: 75vh;" +
-            "  overflow: scroll;" +
             "}" +
             ".spamtracker-table {" +
             "  width: 100%;" +
@@ -89,6 +89,7 @@ window.Spamtracker = (function (target, siterooms) {
     let defaultSound = 'metastackexchange';
     let perSiteSounds = {};
     let maxNotifications = 2;
+    let debugLevel = 0;
 
     // Metadata
     let metaData = GM_info.script || GM_info.SpamtrackerReboot;
@@ -123,23 +124,22 @@ window.Spamtracker = (function (target, siterooms) {
         restoreCallback();
         preloadSoundList(false);
         createDOMNodesForGui();
+        info('Started!');
     };
 
     const loadSeSites = function () {
         seSites = getConfigOption("sites", seSites, true) || seSites;
         const ONE_MONTH = 28 * 24 * 60 * 60 * 1000; /* ms */
-
-
-        if (seSites.sites.length === 0 || ((new Date) - seSites.lastUpdate) > ONE_MONTH) {
+        if (seSites.sites.length === 0 || ((new Date()) - seSites.lastUpdate) > ONE_MONTH) {
             const xhttp = new XMLHttpRequest();
             xhttp.onreadystatechange = () => {
                 if (xhttp.readyState === 4 && xhttp.status === 200) {
                     seSites.sites = sortByKey(JSON.parse(xhttp.responseText).items, 'name');
-                    seSites.lastUpdate = new Date;
-                    setConfigOption("sites", seSites, true)
+                    seSites.lastUpdate = new Date();
+                    setConfigOption("sites", seSites, true);
                 }
             };
-            xhttp.open('GET', 'https://api.stackexchange.com/2.2/sites?pagesize=10000&filter=!2--Yion.3M.ViUyt1*T9R', true);
+            xhttp.open('GET', 'https://api.stackexchange.com/2.2/sites?pagesize=10000&filter=Q-ks*xGqUVcTlzkJZ', true);
             xhttp.send();
         }
     };
@@ -148,6 +148,7 @@ window.Spamtracker = (function (target, siterooms) {
         userSounds = getConfigOption("sounds", userSounds, true);
         perSiteSounds = getConfigOption("sounds-per-site", perSiteSounds, true);
         enabled = getConfigOption("enabled", true, false);
+        debugLevel = getConfigOption("debug", debugLevel, false, false);
         defaultSound = getConfigOption("defaultsound", "metastackexchange", true);
     };
 
@@ -155,6 +156,9 @@ window.Spamtracker = (function (target, siterooms) {
         if (url) {
             if (!sound[url]) {
                 sound[url] = new Audio(url);
+                sound[url].addEventListener('error', cause => {
+                    error('Failed to load: ', url);
+                });
             }
             return true;
         }
@@ -186,7 +190,21 @@ window.Spamtracker = (function (target, siterooms) {
         }
     };
 
-    const makeElement = function (type, classes, text) {
+    const logPrepare = function (level, type) {
+        return (...message) => {
+            if (level <= debugLevel) {
+                message.unshift('[SpamtrackerReboot][' + type + ']');
+                console.log.apply(console.log, message);
+            }
+        };
+    };
+    
+    const error = logPrepare(0, 'error');
+    const warn = logPrepare(1, 'warn');
+    const info = logPrepare(2, 'info');
+    const debug = logPrepare(3, 'debug');
+
+    const makeElement = function (type, classes = [], text = '') {
         const elm = document.createElement(type);
         if (classes.constructor === Array) {
             for (var i = 0; i < classes.length; i++) {
@@ -220,15 +238,15 @@ window.Spamtracker = (function (target, siterooms) {
 
     const createDOMSelectionListForSite = function (site, friendlyName, iconUrl) {
         preloadSoundList(true);
-        const icon = makeElement('img', [], '');
-        const soundSelect = makeElement('select', [], '');
+        const icon = makeElement('img');
+        const soundSelect = makeElement('select');
         const soundTest = makeElement('a', [], '►');
 
-        const iconCell = makeElement('td', [], '');
+        const iconCell = makeElement('td');
         const siteNameCell = makeElement('td', [], friendlyName);
-        const soundCell = makeElement('td', [], '');
+        const soundCell = makeElement('td');
 
-        const row = makeElement('tr', [], '');
+        const row = makeElement('tr');
 
         icon.src = iconUrl;
         icon.height = 16;
@@ -286,17 +304,18 @@ window.Spamtracker = (function (target, siterooms) {
     const createDOMSelectionListForAllSites = function () {
         if (domTabSites)
             return;
-        const domTable = makeElement('table', 'spamtracker-table', '');
-        const domTableHead = makeElement('thead', [], '');
-        const domTableHeadRow = makeElement('tr', [], '');
-        const domTableHeadCellIcon = makeElement('th', [], '');
+        debug('Creating sound tab');
+        const domTable = makeElement('table', ['spamtracker-table', 'display', 'compact']);
+        const domTableHead = makeElement('thead');
+        const domTableHeadRow = makeElement('tr');
+        const domTableHeadCellIcon = makeElement('th');
         const domTableHeadCellName = makeElement('th', [], 'Name');
         const domTableHeadCellSound = makeElement('th', [], 'Sound');
         domTableHeadRow.append(domTableHeadCellIcon);
         domTableHeadRow.append(domTableHeadCellName);
         domTableHeadRow.append(domTableHeadCellSound);
         domTableHead.append(domTableHeadRow);
-        const domTableBody = makeElement('tbody', [], '');
+        const domTableBody = makeElement('tbody');
         for (let i = 0; i < seSites.sites.length; i++) {
             if (seSites.sites[i].site_url.includes('.meta.')) {
                 continue;
@@ -316,13 +335,17 @@ window.Spamtracker = (function (target, siterooms) {
                     null,
                     null,
                     {bSearchable: false}
-                ]});
+                ],
+                scrollY: "60vh",
+                scrollCollapse: true,
+                paging: false
+            });
         }
     };
 
     const createDOMNodesForGui = function () {
         // CSS
-        addStyleString(GM_getResourceText('DataTablesCSS'));
+        addStyleUrl(GM_getResourceURL('DataTablesCSS'));
         addStyleString(css);
 
         // Footerbar
@@ -369,8 +392,14 @@ window.Spamtracker = (function (target, siterooms) {
     };
 
     const addStyleString = function (str) {
-        const node = document.createElement('style');
+        const node = makeElement('style');
         node.innerHTML = str;
+        document.head.appendChild(node);
+    };
+    const addStyleUrl = function (str) {
+        const node = makeElement('link');
+        node.rel = 'stylesheet';
+        node.href = str;
         document.head.appendChild(node);
     };
 
@@ -401,6 +430,7 @@ window.Spamtracker = (function (target, siterooms) {
     const playSound = function ( {site}) {
         if (useSound) {
             const siteSound = perSiteSounds[site];
+            debug("Playing song " + siteSound + " for site " + site);
             playSoundFile(siteSound);
     }
     };
@@ -408,7 +438,7 @@ window.Spamtracker = (function (target, siterooms) {
     const playSoundFile = function (soundName) {
         const soundUrl = defaultSounds[soundName] || userSounds[soundName] || defaultSounds[defaultSound];
         if (!sound[soundUrl]) {
-            console.log("Sound " + soundUrl + " was not ready when we needed it, coming from " + soundName);
+            warn("Sound " + soundUrl + " was not ready when we needed it, coming from " + soundName);
             if (!prepareSound(soundUrl)) {
                 return false;
             }
@@ -424,6 +454,7 @@ window.Spamtracker = (function (target, siterooms) {
         if (!enabled) {
             return;
         }
+        debug("Notify user about: ", msg);
         playSound(msg);
         const notification = new Notification(msg.title, {
             body: msg.message,
@@ -512,6 +543,11 @@ window.Spamtracker = (function (target, siterooms) {
         return true;
     };
 
+    const setDebugLevel = function (level) {
+        debugLevel = level - 0;
+        setConfigOption("debug", debugLevel, false);
+    };
+
     /**
      * Register an observer on the .messages element
      */
@@ -569,17 +605,31 @@ window.Spamtracker = (function (target, siterooms) {
         });
     };
 
-    const getConfigOption = function (key, defaultValue, global) {
-        const data = JSON.parse(window.localStorage.getItem(metaData.name + '-' + (!global ? sitename + '-' : '') + key));
+    const getConfigOption = function (key, defaultValue, global = true, saveDefault = true) {
+        const storageKey = (!global ? sitename + '-' : '') + key;
+        let value;
+        if (GM_setValue && GM_getValue) {
+            value = GM_getValue(storageKey);
+        }
+        if (value === undefined) {
+            value = window.localStorage.getItem(metaData.name + '-' + storageKey);
+        }
+        const data = JSON.parse(value);
         if (data === null) {
-            setConfigOption(key, defaultValue, global);
+            if (saveDefault)
+                setConfigOption(key, defaultValue, global);
             return defaultValue;
         }
         return data;
     };
 
     const setConfigOption = function (key, value, global) {
-        window.localStorage.setItem(metaData.name + '-' + (!global ? sitename + '-' : '') + key, JSON.stringify(value));
+        const storageKey = (!global ? sitename + '-' : '') + key;
+        const data = JSON.stringify(value);
+        if (GM_setValue && GM_getValue) {
+            GM_setValue(storageKey, data);
+        }
+        window.localStorage.setItem(metaData.name + '-' + storageKey, data);
     };
 
     init();
@@ -588,7 +638,7 @@ window.Spamtracker = (function (target, siterooms) {
         setCallback: setCallback,
         restoreCallback: restoreCallback,
         processChatMessage: processChatMessage,
-        metaData: metaData
+        setDebugLevel: setDebugLevel
     };
     return self;
-})(document.getElementById('chat'), document.getElementById('siterooms'));
+})(document.getElementById('chat'), document.getElementById('siterooms'), unsafeWindow);
