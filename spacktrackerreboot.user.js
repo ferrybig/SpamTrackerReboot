@@ -157,11 +157,7 @@ unsafeWindow.Spamtracker = (function(target, siterooms, window) {
         perSiteSounds = getConfigOption('sounds-per-site', perSiteSounds, true);
         enabled = getConfigOption('enabled', true, false);
         debugLevel = getConfigOption('debug', debugLevel, false, false);
-        defaultSound = getConfigOption(
-            'defaultsound',
-            'metastackexchange',
-            true
-        );
+        defaultSound = getConfigOption('defaultsound', defaultSound, true);
     };
 
     const prepareSound = function(url) {
@@ -246,25 +242,7 @@ unsafeWindow.Spamtracker = (function(target, siterooms, window) {
         return elm;
     };
 
-    const createDOMSelectionListForSite = function(
-        site,
-        friendlyName,
-        iconUrl
-    ) {
-        preloadSoundList(true);
-        const icon = makeElement('img');
-        const soundSelect = makeElement('select');
-        const soundTest = makeElement('a', [], '►');
-
-        const iconCell = makeElement('td');
-        const siteNameCell = makeElement('td', [], friendlyName);
-        const soundCell = makeElement('td');
-
-        const row = makeElement('tr');
-
-        icon.src = iconUrl;
-        icon.height = 16;
-        let selectedSound = userSounds;
+    const getKnownSoundNames = function() {
         const keys = [];
         for (let key in defaultSounds) {
             if (!defaultSounds.hasOwnProperty(key)) continue;
@@ -275,39 +253,82 @@ unsafeWindow.Spamtracker = (function(target, siterooms, window) {
             if (!userSounds.hasOwnProperty(key)) continue;
             keys.push(key);
         }
-        if (keys.indexOf(selectedSound) === -1) {
+        return keys;
+    };
+
+    const verifySoundName = function(name, keys = undefined) {
+        if (!keys) keys = getKnownSoundNames();
+        if (keys.indexOf(name) === -1) {
             if (keys.indexOf(defaultSound) === -1) {
                 console.log(
                     'Default sound updated, because previous one was missing'
                 );
                 defaultSound = Object.keys(defaultSounds)[0];
             }
-            selectedSound = defaultSound;
+            name = defaultSound;
         }
-        for (let i = 0; i < keys.length; i++) {
-            const option = makeElement('option', [], keys[i]);
-            option.value = keys[i];
-            if (keys[i] === selectedSound) {
+        return name;
+    };
+
+    const makeSoundSelectBox = function(site) {
+        const container = makeElement('span');
+        const soundSelect = makeElement('select');
+        const soundTest = makeElement('a', [], '►');
+        const keys = getKnownSoundNames();
+        let selectedSound = userSounds[site];
+        for (let i = site ? -1 : 0; i < keys.length; i++) {
+            const name = i === -1 ? 'default' : keys[i];
+            const value = i === -1 ? '' : keys[i];
+            const option = makeElement('option', [], name);
+            option.value = value;
+            if (name === selectedSound) {
                 option.selected = true;
             }
             soundSelect.append(option);
         }
         soundSelect.addEventListener('change', () => {
-            if (soundSelect.value === defaultSound) {
-                delete perSiteSounds[site];
+            if (site) {
+                if (soundSelect.value === '') {
+                    delete perSiteSounds[site];
+                } else {
+                    perSiteSounds[site] = soundSelect.value;
+                }
+                setConfigOption('sounds-per-site', perSiteSounds, true);
             } else {
-                perSiteSounds[site] = soundSelect.value;
+                defaultSound = soundSelect.value;
+                setConfigOption('defaultsound', defaultSound, true);
             }
-            setConfigOption('sounds-per-site', perSiteSounds, true);
         });
         soundTest.href = 'javascript:void(0)';
         soundTest.addEventListener('click', () =>
             playSoundFile(soundSelect.value)
         );
 
+        container.append(soundSelect);
+        container.append(soundTest);
+        return container;
+    };
+
+    const createDOMSelectionListForSite = function(
+        site,
+        friendlyName,
+        iconUrl
+    ) {
+        preloadSoundList(true);
+        const icon = makeElement('img');
+
+        const iconCell = makeElement('td');
+        const siteNameCell = makeElement('td', [], friendlyName);
+        const soundCell = makeElement('td');
+
+        const row = makeElement('tr');
+
+        icon.src = iconUrl;
+        icon.height = 16;
+
+        soundCell.append(makeSoundSelectBox(site));
+
         iconCell.append(icon);
-        soundCell.append(soundSelect);
-        soundCell.append(soundTest);
 
         row.append(iconCell);
         row.append(siteNameCell);
@@ -348,11 +369,10 @@ unsafeWindow.Spamtracker = (function(target, siterooms, window) {
         }
         domTable.append(domTableHead);
         domTable.append(domTableBody);
-        domTabSites = makeElement(
-            'div',
-            ['spamtracker-tab-sound', 'spamtracker-tab'],
-            ''
-        );
+        domTabSites = makeElement('div', [
+            'spamtracker-tab-sound',
+            'spamtracker-tab'
+        ]);
         domTabSites.append(domTable);
         domGui.append(domTabSites);
 
@@ -415,9 +435,12 @@ unsafeWindow.Spamtracker = (function(target, siterooms, window) {
                     'spamtracker: ' + (enabled ? 'on' : 'off');
             }
         );
+        const domDefaultSound = makeElement('span', '', ' | Default sound: ');
+        domDefaultSound.append(makeSoundSelectBox());
 
         const domBtnBar = makeElement('div', 'spamtracker-header-btn-bar');
         domBtnBar.append(domEnableDisable);
+        domBtnBar.append(domDefaultSound);
 
         domGui = makeElement('div', 'spamtracker-popup');
         domGui.append(domHeader);
