@@ -132,6 +132,7 @@ unsafeWindow.Spamtracker = (function (target, siterooms, window) {
         const ONE_MONTH = 28 * 24 * 60 * 60 * 1000; /* ms */
         if (seSites.sites.length === 0 || ((new Date()) - seSites.lastUpdate) > ONE_MONTH) {
             const xhttp = new XMLHttpRequest();
+            info("Requesting api.stackexchange.com/2.2/sites");
             xhttp.onreadystatechange = () => {
                 if (xhttp.readyState === 4 && xhttp.status === 200) {
                     seSites.sites = sortByKey(JSON.parse(xhttp.responseText).items, 'name');
