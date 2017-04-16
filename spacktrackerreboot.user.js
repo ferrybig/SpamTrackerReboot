@@ -8,13 +8,17 @@
 // @match        *://chat.stackoverflow.com/*
 // @run-at       document-end
 // @require      https://cdn.datatables.net/1.10.13/js/jquery.dataTables.min.js#sha512=1ac1502c5a6774e6e7d3c77dd90d863f745371cd936d8a1620ab1c4a21173ffccfd327e435395df6658779ea87baad3b5ff84bf195110c7bc3187112ee820917
-// @resource     DataTablesCSS https://cdn.datatables.net/1.10.13/css/jquery.dataTables.min.css#sha512=c45f1efde68a4130b5d7b68f2441ba1a85d552fda2076772ba67bdc0fb8d05c21e0d81e89ab418cec18d0ca7d304d9a5504998c05d73f778c4c9f20bbeefaad3
+// @resource     DataTablesCSS https://cdn.datatables.net/1.10.13/css/jquery.dataTables.min.css#sha256=f99d6b61adf2b3939d64d51c9391bb941bdbf00d773ab630bdff9df0f7c46874
+// @resource     DataTablesSortAsc https://cdn.datatables.net/1.10.13/images/sort_asc.png#sha256=595704c3f3cf4cb65c7d9c8508a99e7480e150095473faed31a07c21b13389b8
+// @resource     DataTablesSortDesc https://cdn.datatables.net/1.10.13/images/sort_desc.png#sha256=d08ed0e21f187dd309030d465224da8085119a15a17d616ba0e477bb50c6f10d
+// @resource     DataTablesSortBoth https://cdn.datatables.net/1.10.13/images/sort_both.png#sha256=3e016c23ae51417382b640ae2d19eb48047532c37ad53894bd185586559ccffb
+// @grant        GM_getResourceText
 // @grant        GM_getResourceURL
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        unsafeWindow
 // ==/UserScript==
-/* global GM_info, Notification, fire, GM_setValue, GM_getValue, unsafeWindow */
+/* global GM_info, Notification, fire, GM_setValue, GM_getValue, unsafeWindow, GM_getResourceText, GM_getResourceURL */
 
 unsafeWindow.Spamtracker = (function(target, siterooms, window) {
     'use strict';
@@ -389,7 +393,21 @@ unsafeWindow.Spamtracker = (function(target, siterooms, window) {
 
     const createDOMNodesForGui = function() {
         // CSS
-        addStyleUrl(GM_getResourceURL('DataTablesCSS'));
+        addStyleString(
+            GM_getResourceText('DataTablesCSS')
+                .replace(
+                    '../images/sort_asc.png',
+                    GM_getResourceURL('DataTablesSortAsc')
+                )
+                .replace(
+                    '../images/sort_desc.png',
+                    GM_getResourceURL('DataTablesSortDesc')
+                )
+                .replace(
+                    '../images/sort_both.png',
+                    GM_getResourceURL('DataTablesSortBoth')
+                )
+        );
         addStyleString(css);
 
         // Footerbar
