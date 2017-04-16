@@ -18,7 +18,7 @@
 // @grant        GM_getValue
 // @grant        unsafeWindow
 // ==/UserScript==
-/* global GM_info, Notification, fire, GM_setValue, GM_getValue, unsafeWindow, GM_getResourceText, GM_getResourceURL */
+/* global GM_info, Notification, GM_setValue, GM_getValue, unsafeWindow, GM_getResourceText, GM_getResourceURL */
 
 unsafeWindow.Spamtracker = (function(target, siterooms, window) {
     'use strict';
@@ -487,11 +487,9 @@ unsafeWindow.Spamtracker = (function(target, siterooms, window) {
      */
     const restoreCallback = function() {
         callback = msg => {
-            if (
-                'fire' in window && 'openReportPopupForMessage' in window.fire
-            ) {
+            if (window.fire && window.fire.openReportPopupForMessage) {
                 window.focus();
-                fire.openReportPopupForMessage(msg.elm);
+                window.fire.openReportPopupForMessage(msg.elm);
             } else {
                 window.open(msg.url);
             }
